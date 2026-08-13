@@ -1,0 +1,10 @@
+DEFAULT_MONGO_URL="mongodb://localhost:27017"
+DATABASE_NAME = "api_key_poc"
+API_KEY_COLLECTION = "api_keys"
+ANIMAL_COLLECTION = "animals"
+
+DEFAULT_REDIS_HOST = "127.0.0.1"
+DEFAULT_REDIS_PORT = "6379"
+API_KEY_PREFIX = "nebula_api_key"
+
+DEFAULT_JAEGER_ENDPOINT = "localhost:4317"
