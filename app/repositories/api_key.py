@@ -4,7 +4,9 @@ from typing import Optional
 from bson import ObjectId
 
 import logging
+
 logger = logging.getLogger(__name__)
+
 
 class APIKeyRepository:
     def __init__(self, collection: Collection):
@@ -22,9 +24,7 @@ class APIKeyRepository:
         return api_key
 
     def find_by_hash(self, key_hash: str) -> Optional[APIKey]:
-        doc = self.collection.find_one(
-            {"hashed_key": key_hash}
-        )
+        doc = self.collection.find_one({"hashed_key": key_hash})
         if doc is None:
             return None
 

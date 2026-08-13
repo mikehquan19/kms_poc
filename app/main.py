@@ -24,10 +24,12 @@ trace.set_tracer_provider(provider)
 # Route
 app.include_router(animal_router, prefix="/api")
 app.include_router(api_key_router, prefix="/api")
- 
+
+
 @app.get("/health")
 def health():
     """Health check endpoint"""
     return {"status": "ok"}
+
 
 FastAPIInstrumentor.instrument_app(app)

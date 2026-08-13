@@ -1,12 +1,13 @@
 from locust import HttpUser, task, between, LoadTestShape
 import os
 
+
 class ProductionLoadShape(LoadTestShape):
     stages = [
-        {"duration": 60,  "users": 100, "spawn_rate": 20},
+        {"duration": 60, "users": 100, "spawn_rate": 20},
         {"duration": 120, "users": 200, "spawn_rate": 20},
         {"duration": 240, "users": 500, "spawn_rate": 20},
-        {"duration": 340, "users": 50,  "spawn_rate": 25},
+        {"duration": 340, "users": 50, "spawn_rate": 25},
     ]
 
     def tick(self):
@@ -21,6 +22,7 @@ class ProductionLoadShape(LoadTestShape):
 
         return None
 
+
 class APIUser(HttpUser):
     wait_time = between(1, 1.5)
 
@@ -33,8 +35,9 @@ class APIUser(HttpUser):
             "/api/animals",
             headers={
                 "Authorization": f"Bearer {self.api_key}",
-            }
+            },
         )
 
     @task
-    def get_new_key_and 
+    def get_new_key_and_animals(self):
+        self.client.post()

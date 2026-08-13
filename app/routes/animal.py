@@ -6,10 +6,9 @@ from app.dependency import get_animal_service, require_api_key
 from app.services import AnimalService
 
 animal_router = APIRouter(
-    prefix="/animals",
-    tags=["animals"],
-    dependencies=[Depends(require_api_key)]
+    prefix="/animals", tags=["animals"], dependencies=[Depends(require_api_key)]
 )
+
 
 @animal_router.get("/", response_model=List[Animal])
 def get_animals(

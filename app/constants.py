@@ -1,4 +1,4 @@
-DEFAULT_MONGO_URL="mongodb://localhost:27017"
+DEFAULT_MONGO_URL = "mongodb://localhost:27017"
 DATABASE_NAME = "api_key_poc"
 API_KEY_COLLECTION = "api_keys"
 ANIMAL_COLLECTION = "animals"

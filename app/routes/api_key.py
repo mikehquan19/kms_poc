@@ -7,9 +7,11 @@ from app.services import APIKeyService
 
 api_key_router = APIRouter(prefix="/keys", tags=["keys"])
 
+
 class CreateAPIKeyRequest(BaseModel):
     project: str
     description: str
+
 
 @api_key_router.post("/")
 def create_key(
@@ -24,8 +26,10 @@ def create_key(
         )
     return json
 
+
 class RevokeAPIKeyRequest(BaseModel):
     key_id: str
+
 
 @api_key_router.post("/revoke")
 def revoke_key(

@@ -8,20 +8,19 @@ from app.repositories import APIKeyRepository, RedisCache
 from app.constants import API_KEY_PREFIX
 
 from dotenv import load_dotenv
+import logging
+from opentelemetry import trace
+
 load_dotenv()
 
-import logging
-logger = logging.getLogger(__name__)
 
-from opentelemetry import trace
+logger = logging.getLogger(__name__)
 tracer = trace.get_tracer(__name__)
+
 
 class APIKeyService:
     def __init__(
-        self, 
-        repository: APIKeyRepository, 
-        cache: RedisCache, 
-        cache_ttl: int = 30, # Configurable here
+        self, repository: APIKeyRepository, cache: RedisCache, cache_ttl: int = 30
     ):
         self.repository = repository
         self.cache = cache
@@ -34,9 +33,7 @@ class APIKeyService:
     def _insert_cache(self, key_hash: str, doc: APIKey):
         try:
             self.cache.set(
-                f"{API_KEY_PREFIX}:{key_hash}",
-                doc.model_dump_json(),
-                self.cache_ttl
+                f"{API_KEY_PREFIX}:{key_hash}", doc.model_dump_json(), self.cache_ttl
             )
             logger.info("Key inserted to cache")
         except Exception:
@@ -55,11 +52,13 @@ class APIKeyService:
             key_hash = self._hash_key(api_key)
 
             with tracer.start_as_current_span("mongo.insert_api_key"):
-                created_doc = self.repository.create(APIKey(
-                    project=project,
-                    description=description,
-                    hashed_key=key_hash,
-                ))
+                created_doc = self.repository.create(
+                    APIKey(
+                        project=project,
+                        description=description,
+                        hashed_key=key_hash,
+                    )
+                )
                 if created_doc is None:
                     return None
 
@@ -76,6 +75,17 @@ class APIKeyService:
             }
 
     def validate_key(self, api_key: str) -> Optional[APIKey]:
+        """
+        Strategy for API key validation:
+            - Hash using SHA-256
+            - Check Redis cache. If cache hits, return the result
+            - If cache misses,
+            -   Check MongoDB. If key exists,
+            -       Re-insert the key in cache
+            -       Return result
+            - Return none
+
+        """
         with tracer.start_as_current_span("api_key.validate"):
             key_hash = self._hash_key(api_key)
 
@@ -114,4 +124,3 @@ class APIKeyService:
                     logger.info("Key deleted from cache")
 
             return True
-        

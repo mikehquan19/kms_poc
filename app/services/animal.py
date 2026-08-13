@@ -3,7 +3,9 @@ from app.models import Animal
 from app.repositories import AnimalRepository
 
 from opentelemetry import trace
+
 tracer = trace.get_tracer(__name__)
+
 
 class AnimalService:
     def __init__(self, repository: AnimalRepository):

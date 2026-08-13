@@ -2,6 +2,7 @@ from typing import List
 from pymongo.collection import Collection
 from app.models import Animal
 
+
 class AnimalRepository:
     def __init__(self, collection: Collection):
         self.collection = collection
