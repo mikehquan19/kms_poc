@@ -34,7 +34,7 @@ class APIUser(HttpUser):
         self.client.get(
             "/api/animals",
             headers={
-                "Authorization": f"Bearer {self.api_key}",
+                "x-api-key": self.api_key,
             },
         )
 

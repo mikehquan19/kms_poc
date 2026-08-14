@@ -4,3 +4,8 @@ redis
 psycopg[binary]
 pydantic-settings
 pymongo
+python-dotenv
+opentelemetry-api
+opentelemetry-sdk
+opentelemetry-exporter-otlp-proto-grpc
+opentelemetry-instrumentation-fastapi

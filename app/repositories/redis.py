@@ -2,10 +2,18 @@ from redis import Redis
 
 
 class RedisCache:
-    def __init__(self, host: str, port: int):
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        username: str | None = None,
+        password: str | None = None,
+    ):
         self.client = Redis(
             host=host,
             port=port,
+            username=username,
+            password=password,
             decode_responses=True,
         )
 

@@ -13,12 +13,14 @@ app = FastAPI()
 
 # Tracing
 provider = TracerProvider()
-exporter = OTLPSpanExporter(
-    endpoint=os.getenv("JAEGER_ENDPOINT", DEFAULT_JAEGER_ENDPOINT),
-    insecure=True,
-)
-processor = BatchSpanProcessor(exporter)
-provider.add_span_processor(processor)
+enable_tracing = os.getenv("ENABLE_TRACING", "false").lower() == "true"
+if enable_tracing:
+    exporter = OTLPSpanExporter(
+        endpoint=os.getenv("JAEGER_ENDPOINT", DEFAULT_JAEGER_ENDPOINT),
+        insecure=True,
+    )
+    processor = BatchSpanProcessor(exporter)
+    provider.add_span_processor(processor)
 trace.set_tracer_provider(provider)
 
 # Route

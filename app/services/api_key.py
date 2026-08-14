@@ -20,7 +20,7 @@ tracer = trace.get_tracer(__name__)
 
 class APIKeyService:
     def __init__(
-        self, repository: APIKeyRepository, cache: RedisCache, cache_ttl: int = 30
+        self, repository: APIKeyRepository, cache: RedisCache, cache_ttl: int = 300
     ):
         self.repository = repository
         self.cache = cache
@@ -36,8 +36,8 @@ class APIKeyService:
                 f"{API_KEY_PREFIX}:{key_hash}", doc.model_dump_json(), self.cache_ttl
             )
             logger.info("Key inserted to cache")
-        except Exception:
-            logger.info("Failed to cache API key")
+        except Exception as e:
+            logger.error(f"Failed to cache API key: {e}")
 
     def create_key(self, project: str, description: str) -> Optional[dict[str, Any]]:
         """

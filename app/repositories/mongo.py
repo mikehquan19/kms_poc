@@ -1,4 +1,5 @@
 from pymongo import MongoClient
+from pymongo.server_api import ServerApi
 from pymongo.errors import ConnectionFailure
 from app.constants import DATABASE_NAME
 
@@ -9,8 +10,8 @@ logger = logging.getLogger(__name__)
 
 class MongoDB:
     def __init__(self, connection_string: str):
+        self.client = MongoClient(connection_string, server_api=ServerApi("1"))
         try:
-            self.client = MongoClient(connection_string)
             self.client.admin.command("ping")
             logger.info("Successfully connected to MongoDB!")
 

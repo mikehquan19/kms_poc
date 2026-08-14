@@ -12,9 +12,6 @@ class APIKeyRepository:
     def __init__(self, collection: Collection):
         self.collection = collection
 
-        # Index is idempotent so it will not create another one
-        self.collection.create_index([("hashed_key", 1)], unique=True)
-
     def create(self, api_key: APIKey) -> Optional[APIKey]:
         result = self.collection.insert_one(api_key.model_dump(mode="json"))
         if not result.acknowledged:
