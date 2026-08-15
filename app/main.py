@@ -6,7 +6,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
-from app.routes import animal_router, api_key_router
+from app.routes import animal_router, api_key_router, internal_router
 from app.constants import DEFAULT_JAEGER_ENDPOINT
 
 app = FastAPI()
@@ -26,6 +26,7 @@ trace.set_tracer_provider(provider)
 # Route
 app.include_router(animal_router, prefix="/api")
 app.include_router(api_key_router, prefix="/api")
+app.include_router(internal_router, prefix="/api")
 
 
 @app.get("/health")
@@ -34,4 +35,5 @@ def health():
     return {"status": "ok"}
 
 
+# Export the trace
 FastAPIInstrumentor.instrument_app(app)

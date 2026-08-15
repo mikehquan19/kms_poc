@@ -20,7 +20,7 @@ tracer = trace.get_tracer(__name__)
 
 class APIKeyService:
     def __init__(
-        self, repository: APIKeyRepository, cache: RedisCache, cache_ttl: int = 300
+        self, repository: APIKeyRepository, cache: RedisCache, cache_ttl: int = 30 * 60
     ):
         self.repository = repository
         self.cache = cache
@@ -72,6 +72,7 @@ class APIKeyService:
                 "api_key": api_key,
                 "active": created_doc.active,
                 "created_at": created_doc.created_at,
+                "internal": created_doc.internal,
             }
 
     def validate_key(self, api_key: str) -> Optional[APIKey]:
@@ -120,7 +121,10 @@ class APIKeyService:
 
             if self.use_cache:
                 with tracer.start_as_current_span("redis.delete_api_key"):
-                    self.cache.delete(f"{API_KEY_PREFIX}:{doc.hashed_key}")
-                    logger.info("Key deleted from cache")
+                    try:
+                        self.cache.delete(f"{API_KEY_PREFIX}:{doc.hashed_key}")
+                        logger.info("Key deleted from cache")
+                    except Exception as e:
+                        logger.error(f"Failed to delete cached API key: {e}")
 
             return True
