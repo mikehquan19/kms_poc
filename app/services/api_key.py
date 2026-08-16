@@ -39,7 +39,9 @@ class APIKeyService:
         except Exception as e:
             logger.error(f"Failed to cache API key: {e}")
 
-    def create_key(self, project: str, description: str) -> Optional[dict[str, Any]]:
+    def create_key(
+        self, project: str, description: str, internal: bool
+    ) -> Optional[dict[str, Any]]:
         """
         Strategy for API key generation:
             - Format: `nebula_api_<32 bytes of base64-encoded string>`
@@ -57,6 +59,7 @@ class APIKeyService:
                         project=project,
                         description=description,
                         hashed_key=key_hash,
+                        internal=internal,
                     )
                 )
                 if created_doc is None:

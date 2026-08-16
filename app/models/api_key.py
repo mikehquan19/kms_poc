@@ -8,4 +8,4 @@ class APIKey(BaseModel):
     hashed_key: str
     active: bool = True
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    internal: bool = False
+    internal: bool

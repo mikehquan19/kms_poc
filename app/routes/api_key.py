@@ -11,6 +11,7 @@ api_key_router = APIRouter(prefix="/keys", tags=["keys"])
 class CreateAPIKeyRequest(BaseModel):
     project: str
     description: str
+    internal: bool
 
 
 @api_key_router.post("/")
@@ -18,7 +19,9 @@ def create_key(
     request: CreateAPIKeyRequest,
     api_key_service: APIKeyService = Depends(get_api_key_service),
 ):
-    json = api_key_service.create_key(request.project, request.description)
+    json = api_key_service.create_key(
+        request.project, request.description, request.internal
+    )
     if json is None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
