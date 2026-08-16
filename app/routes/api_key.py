@@ -34,15 +34,15 @@ class RevokeAPIKeyRequest(BaseModel):
     key_id: str
 
 
-@api_key_router.post("/revoke")
+@api_key_router.post("/revoke/")
 def revoke_key(
     request: RevokeAPIKeyRequest,
     api_key_service: APIKeyService = Depends(get_api_key_service),
 ):
-    ack = api_key_service.revoke_key(request.key_id)
-    if not ack:
+    acknowledged = api_key_service.revoke_key(request.key_id)
+    if not acknowledged:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Can not revoke the key",
         )
-    return ack
+    return acknowledged

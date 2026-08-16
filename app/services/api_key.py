@@ -2,6 +2,7 @@ import secrets
 import hashlib
 import os
 from typing import Any, Optional
+from datetime import datetime, timezone
 
 from app.models import APIKey
 from app.repositories import APIKeyRepository, RedisCache
@@ -30,14 +31,23 @@ class APIKeyService:
     def _hash_key(self, api_key: str) -> str:
         return hashlib.sha256(api_key.encode("utf-8")).hexdigest()
 
-    def _insert_cache(self, key_hash: str, doc: APIKey):
+    def _insert_cache(self, doc: APIKey):
         try:
             self.cache.set(
-                f"{API_KEY_PREFIX}:{key_hash}", doc.model_dump_json(), self.cache_ttl
+                f"{API_KEY_PREFIX}:{doc.hashed_key}",
+                doc.model_dump_json(),
+                self.cache_ttl,
             )
             logger.info("Key inserted to cache")
         except Exception as e:
             logger.error(f"Failed to cache API key: {e}")
+
+    def _delete_cache(self, key_hash: str):
+        try:
+            self.cache.delete(f"{API_KEY_PREFIX}:{key_hash}")
+            logger.info("Key deleted from cache")
+        except Exception as e:
+            logger.error(f"Failed to delete cached API key: {e}")
 
     def create_key(
         self, project: str, description: str, internal: bool
@@ -67,7 +77,7 @@ class APIKeyService:
 
             if self.use_cache:
                 with tracer.start_as_current_span("redis.set_api_key"):
-                    self._insert_cache(key_hash, created_doc)
+                    self._insert_cache(created_doc)
 
             return {
                 "project": created_doc.project,
@@ -111,23 +121,48 @@ class APIKeyService:
             # Cache misses probably because of expiry
             if self.use_cache and doc is not None and doc.active:
                 with tracer.start_as_current_span("redis.set_api_key"):
-                    self._insert_cache(key_hash, doc)
+                    self._insert_cache(doc)
 
             return doc
 
     def revoke_key(self, key_id: str) -> bool:
         with tracer.start_as_current_span("api_key.revoke"):
-            with tracer.start_as_current_span("mongo.revoke_api_key"):
+            with tracer.start_as_current_span("mongo.revoke_api_key") as span:
                 doc = self.repository.revoke(key_id)
                 if doc is None:
                     return False
 
+                span.set_attributes(
+                    {
+                        "api_key.revoked_at": doc.revoked_at,
+                        "api_key.deleted_at": doc.deleted_at,
+                    }
+                )
+
             if self.use_cache:
                 with tracer.start_as_current_span("redis.delete_api_key"):
-                    try:
-                        self.cache.delete(f"{API_KEY_PREFIX}:{doc.hashed_key}")
-                        logger.info("Key deleted from cache")
-                    except Exception as e:
-                        logger.error(f"Failed to delete cached API key: {e}")
+                    self._delete_cache(doc.hashed_key)
+
+            return True
+
+    def reactivate_key(self, key_id: str) -> bool:
+        with tracer.start_as_current_span("api_key.reactivate"):
+            doc = self.repository.reactivate(key_id)
+            return doc is not None
+
+    def force_delete_key(self, key_id: str) -> bool:
+        with tracer.start_as_current_span("api_key.force_delete"):
+            with tracer.start_as_current_span("mongo.force_delete") as span:
+                doc = self.repository.force_delete(key_id)
+                if doc is None:
+                    return False
+
+                span.set_attribute(
+                    "api_key.force_deleted_at", datetime.now(timezone.utc)
+                )
+
+            if self.use_cache:
+                with tracer.start_as_current_span("redis.delete_api_key"):
+                    self._delete_cache(doc.hashed_key)
 
             return True
