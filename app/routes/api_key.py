@@ -46,3 +46,29 @@ def revoke_key(
             detail="Can not revoke the key",
         )
     return acknowledged
+
+@api_key_router.post("/reactivate/")
+def reactivate_key(
+    request: RevokeAPIKeyRequest,
+    api_key_service: APIKeyService = Depends(get_api_key_service),
+):
+    acknowledged = api_key_service.reactivate_key(request.key_id)
+    if not acknowledged:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Can not reactivate the key",
+        )
+    return acknowledged
+
+@api_key_router.post("/force-delete/")
+def force_delete_key(
+    request: RevokeAPIKeyRequest,
+    api_key_service: APIKeyService = Depends(get_api_key_service),
+):
+    acknowledged = api_key_service.force_delete_key(request.key_id)
+    if not acknowledged:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Can not reactivate the key",
+        )
+    return acknowledged
