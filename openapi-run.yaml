@@ -1,0 +1,57 @@
+swagger: "2.0"
+
+info:
+  title: kms-poc-api
+  description: Custom API key management POC
+  version: "1.0.0"
+
+schemes:
+  - https
+
+produces:
+  - application/json
+
+x-google-allow: configured
+
+x-google-backend:
+  address: https://kms-poc-1097551621261.us-central1.run.app
+  path_translation: APPEND_PATH_TO_ADDRESS
+
+paths:
+  /health:
+    get:
+      operationId: health
+      responses:
+        "200":
+          description: Service is healthy
+
+  /api/animals/:
+    get:
+      operationId: getAnimals
+      parameters:
+        - in: header
+          name: x-api-key
+          type: string
+          required: true
+      responses:
+        "200":
+          description: Animals returned successfully
+        "401":
+          description: Invalid or revoked API key
+        "403":
+          description: Forbidden error
+  /api/internal/:
+    get:
+      operationId: getInternal
+      parameters:
+        - in: header
+          name: x-api-key
+          type: string
+          required: true
+      responses:
+        "200":
+          description: Internal messages returned successfully
+        "401":
+          description: Invalid or revoked API key
+        "403":
+          description: Forbidden error
