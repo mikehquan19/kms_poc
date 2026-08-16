@@ -29,6 +29,11 @@ class APIKeyRepository:
         return APIKey(**doc)
 
     def revoke(self, key_id: str) -> Optional[APIKey]:
+        """
+        Deactivate the key.
+        The key still exists in the database for period of time before being deleted.
+        During the period, user can contact us if they wish to re-activate the key.
+        """
         result = self.collection.update_one(
             {"_id": ObjectId(key_id), "active": True},
             {
@@ -46,3 +51,14 @@ class APIKeyRepository:
 
         logger.info("Key revoked in DB")
         return APIKey(**doc)
+
+    def delete(self, key_id: str) -> Optional[APIKey]:
+        """Delete the key from the system"""
+        deleted_doc = self.collection.find_one_and_delete(
+            {"_id": ObjectId(key_id), "active": False}
+        )
+
+        if deleted_doc is None:
+            return None
+
+        return APIKey(**deleted_doc)
