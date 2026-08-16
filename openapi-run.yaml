@@ -25,7 +25,7 @@ paths:
         "200":
           description: Service is healthy
 
-  /api/animals/:
+  /api/animals:
     get:
       operationId: getAnimals
       parameters:
@@ -40,7 +40,7 @@ paths:
           description: Invalid or revoked API key
         "403":
           description: Forbidden error
-  /api/internal/:
+  /api/internal:
     get:
       operationId: getInternal
       parameters:
