@@ -10,7 +10,15 @@ animal_router = APIRouter(
 )
 
 
-@animal_router.get("/", response_model=List[Animal])
+@animal_router.get(
+    "",
+    response_model=List[Animal],
+)
+@animal_router.get(
+    "/",
+    response_model=List[Animal],
+    include_in_schema=False,
+)
 def get_animals(
     animal_service: AnimalService = Depends(get_animal_service),
 ):
