@@ -3,7 +3,7 @@ import logging
 from fastapi import Depends, HTTPException, status, Security
 from fastapi.security import APIKeyHeader
 
-from app.models import APIKey
+from app.models import APIKey, APIKeyDTO
 from app.repositories import MongoDB, RedisCache, APIKeyRepository, AnimalRepository
 from app.services import APIKeyService, AnimalService
 from app.constants import (
@@ -61,7 +61,7 @@ def get_animal_service(
 def require_api_key(
     key: str = Security(api_key_header),
     service: APIKeyService = Depends(get_api_key_service),
-) -> APIKey:
+) -> APIKeyDTO:
     """Dependency injected to endpoint that requires API Key"""
     api_key_doc = service.validate_key(key)
     if api_key_doc is None:
@@ -80,8 +80,8 @@ def require_api_key(
 
 
 def require_internal_api_key(
-    api_key_doc: APIKey = Depends(require_api_key),
-):
+    api_key_doc: APIKeyDTO = Depends(require_api_key),
+) -> APIKeyDTO:
     """Dependency injected to endpoint that requires internal API Key"""
     if not api_key_doc.internal:
         raise HTTPException(

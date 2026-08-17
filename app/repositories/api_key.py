@@ -16,7 +16,9 @@ class APIKeyRepository:
         self.collection = collection
 
     def create(self, api_key: APIKey) -> Optional[APIKey]:
-        result = self.collection.insert_one(api_key.model_dump(mode="json"))
+        result = self.collection.insert_one(
+            api_key.model_dump(mode="python", by_alias=True)
+        )
         if not result.acknowledged:
             return None
 
@@ -58,7 +60,7 @@ class APIKeyRepository:
 
     def reactivate(self, key_id: str) -> Optional[APIKey]:
         reactivated_doc = self.collection.find_one_and_update(
-            {"_id": ObjectId(key_id), "active": True},
+            {"_id": ObjectId(key_id), "active": False},
             {
                 "$set": {
                     "active": True,
@@ -78,9 +80,7 @@ class APIKeyRepository:
 
     def force_delete(self, key_id: str) -> Optional[APIKey]:
         """Delete the key from the system. Not recommended"""
-        deleted_doc = self.collection.find_one_and_delete(
-            {"_id": ObjectId(key_id), "active": False}
-        )
+        deleted_doc = self.collection.find_one_and_delete({"_id": ObjectId(key_id)})
 
         if deleted_doc is None:
             return None
