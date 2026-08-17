@@ -17,10 +17,8 @@ class RedisCache:
             username=username,
             password=password,
             decode_responses=True,
-
             max_connections=10,
             timeout=0.5,
-
             socket_connect_timeout=1.0,
             socket_timeout=0.5,
         )
