@@ -12,6 +12,6 @@ class AnimalRepository:
         return [Animal(**doc) for doc in docs]
 
     def create(self, animal: Animal) -> Animal:
-        doc = animal.model_dump(mode="json")
+        doc = animal.model_dump(mode="python", by_alias=True)
         self.collection.insert_one(doc)
         return animal
