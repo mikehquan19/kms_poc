@@ -1,9 +1,8 @@
 import secrets
 import hashlib
 import os
-from typing import Optional
+from typing import Optional, Any
 from datetime import datetime, timezone
-from bson import ObjectId
 
 from app.models import APIKey, APIKeyDTO
 from app.repositories import APIKeyRepository, RedisCache
@@ -22,7 +21,7 @@ tracer = trace.get_tracer(__name__)
 
 class APIKeyService:
     def __init__(
-        self, repository: APIKeyRepository, cache: RedisCache, cache_ttl: int = 60
+        self, repository: APIKeyRepository, cache: RedisCache, cache_ttl: int = 2 * 60
     ):
         self.repository = repository
         self.cache = cache
@@ -52,13 +51,13 @@ class APIKeyService:
 
     def create_key(
         self, project: str, description: str, internal: bool
-    ) -> Optional[APIKeyDTO]:
+    ) -> Optional[dict[str, Any]]:
         """
         Strategy for API key generation:
             - Format: `nebula_api_<32 bytes of base64-encoded string>`
             - Hash using SHA-256
             - Insert to MongoDB
-            - Insert to Redis cache (expiring every 30 secs for testing)
+            - Insert to Redis cache (expiring every 1.5 mins for testing)
         """
         with tracer.start_as_current_span("api_key.create"):
             api_key = f"nebula_api_{secrets.token_urlsafe(32)}"
