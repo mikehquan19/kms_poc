@@ -21,7 +21,7 @@ tracer = trace.get_tracer(__name__)
 
 class APIKeyService:
     def __init__(
-        self, repository: APIKeyRepository, cache: RedisCache, cache_ttl: int = 2 * 60
+        self, repository: APIKeyRepository, cache: RedisCache, cache_ttl: int = 3 * 60
     ):
         self.repository = repository
         self.cache = cache
