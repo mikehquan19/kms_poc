@@ -71,7 +71,7 @@ class APIKeyService:
                     internal=internal,
                 )
             )
-            if created_doc is None:
+            if not created_doc:
                 return None
 
             return {

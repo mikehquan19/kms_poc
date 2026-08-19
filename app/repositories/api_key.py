@@ -27,7 +27,7 @@ class APIKeyRepository:
 
     def find_by_hash(self, key_hash: str) -> Optional[APIKey]:
         doc = self.collection.find_one({"hashed_key": key_hash})
-        if doc is None:
+        if not doc:
             return None
 
         logger.info("Key found in DB")
@@ -52,7 +52,7 @@ class APIKeyRepository:
             },
             return_document=ReturnDocument.AFTER,
         )
-        if revoked_doc is None:
+        if not revoked_doc:
             return None
 
         logger.info("Key revoked in database")
@@ -72,7 +72,7 @@ class APIKeyRepository:
             },
             return_document=ReturnDocument.AFTER,
         )
-        if reactivated_doc is None:
+        if not reactivated_doc:
             return None
 
         logger.info("Key reactivated in database")
@@ -82,7 +82,7 @@ class APIKeyRepository:
         """Delete the key from the system. Not recommended"""
         deleted_doc = self.collection.find_one_and_delete({"_id": ObjectId(key_id)})
 
-        if deleted_doc is None:
+        if not deleted_doc:
             return None
 
         logger.info("Key force deleted from DB")
