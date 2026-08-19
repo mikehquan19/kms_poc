@@ -11,7 +11,7 @@ internal_router = APIRouter(
 
 @internal_router.get("", include_in_schema=True)
 @internal_router.get("/", include_in_schema=False)
-def get_internal():
+async def get_internal():
     return {
         "message": "This is internal information",
     }

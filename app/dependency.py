@@ -67,13 +67,13 @@ def require_api_key(
     if api_key_doc is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Your API key is invalid",
+            detail={"message": "Your API key is invalid"},
         )
 
     if not api_key_doc.active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Your API key has been revoked. Please contact us",
+            detail={"message": "Your API key has been revoked. Please contact us"},
         )
 
     return api_key_doc
@@ -86,7 +86,9 @@ def require_internal_api_key(
     if not api_key_doc.internal:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Your API key doesn't have access to this. Please contact us",
+            detail={
+                "message": "Your API key doesn't have access to this. Please contact us"
+            },
         )
 
     return api_key_doc
