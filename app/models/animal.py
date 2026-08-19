@@ -5,6 +5,7 @@ from pydantic import (
     Field,
     field_serializer,
     field_validator,
+    ConfigDict,
 )
 from bson import ObjectId
 
@@ -22,10 +23,10 @@ class Animal(BaseModel):
     endangered: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-    model_config = {
-        "populate_by_name": True,
-        "arbitrary_types_allowed": True,
-    }
+    model_config = ConfigDict(
+        populate_by_name=True,
+        arbitrary_types_allowed=True,
+    )
 
     @field_validator("id", mode="before")
     @classmethod

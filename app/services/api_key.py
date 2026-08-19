@@ -21,7 +21,7 @@ tracer = trace.get_tracer(__name__)
 
 class APIKeyService:
     def __init__(
-        self, repository: APIKeyRepository, cache: RedisCache, cache_ttl: int = 3 * 60
+        self, repository: APIKeyRepository, cache: RedisCache, cache_ttl: int = 5 * 60
     ):
         self.repository = repository
         self.cache = cache
@@ -121,7 +121,7 @@ class APIKeyService:
                 with tracer.start_as_current_span("redis.set_api_key"):
                     self._insert_cache(doc)
 
-            return doc.convert_dto()
+            return APIKeyDTO(doc)
 
     def revoke_key(self, key_id: str) -> Optional[APIKeyDTO]:
         with tracer.start_as_current_span("api_key.revoke"):
@@ -141,7 +141,7 @@ class APIKeyService:
                 with tracer.start_as_current_span("redis.delete_api_key"):
                     self._delete_cache(doc.hashed_key)
 
-            return doc.convert_dto()
+            return APIKeyDTO(doc)
 
     def reactivate_key(self, key_id: str) -> Optional[APIKeyDTO]:
         with tracer.start_as_current_span("api_key.reactivate"):
@@ -149,7 +149,7 @@ class APIKeyService:
             if not doc:
                 return None
 
-            return doc.convert_dto()
+            return APIKeyDTO(doc)
 
     def force_delete_key(self, key_id: str) -> Optional[APIKeyDTO]:
         with tracer.start_as_current_span("api_key.force_delete"):
@@ -159,11 +159,11 @@ class APIKeyService:
                     return None
 
                 span.set_attribute(
-                    "api_key.force_deleted_at", datetime.now(timezone.utc)
+                    "api_key.deleted_at", datetime.now(timezone.utc)
                 )
 
             if self.use_cache:
                 with tracer.start_as_current_span("redis.delete_api_key"):
                     self._delete_cache(doc.hashed_key)
 
-            return doc.convert_dto()
+            return APIKeyDTO(doc)

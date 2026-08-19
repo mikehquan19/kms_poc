@@ -1,21 +1,7 @@
-from pydantic import (
-    BaseModel,
-    Field,
-    field_serializer,
-    field_validator,
-)
+from pydantic import BaseModel, Field, field_serializer, field_validator, ConfigDict
 from datetime import datetime, timezone
 from typing import Optional
 from bson import ObjectId
-
-
-class APIKeyDTO(BaseModel):
-    id: str
-    project: str
-    description: str
-    active: bool
-    internal: bool
-    created_at: datetime
 
 
 class APIKey(BaseModel):
@@ -29,24 +15,15 @@ class APIKey(BaseModel):
     revoked_at: Optional[datetime] = None
     deleted_at: Optional[datetime] = None
 
-    def convert_dto(self) -> APIKeyDTO:
-        return APIKeyDTO(
-            id=str(self.id),
-            project=self.project,
-            description=self.description,
-            active=self.active,
-            internal=self.internal,
-            created_at=self.created_at,
-        )
-
-    model_config = {
-        "populate_by_name": True,
-        "arbitrary_types_allowed": True,
-    }
+    model_config = ConfigDict(
+        populate_by_name=True,
+        arbitrary_types_allowed=True,
+    )
 
     @field_validator("id", mode="before")
     @classmethod
     def parse_object_id(cls, value):
+        """For `model_dump_json()`"""
         if isinstance(value, ObjectId):
             return value
 
@@ -57,4 +34,22 @@ class APIKey(BaseModel):
 
     @field_serializer("id", when_used="json")
     def serialize_object_id(self, value: ObjectId) -> str:
+        """For `model_dump_json()`"""
         return str(value)
+
+
+class APIKeyDTO(BaseModel):
+    id: str
+    project: str
+    description: str
+    active: bool
+    internal: bool
+    created_at: datetime
+
+    def __init__(self, key: APIKey):
+        self.id = (str(key.id),)
+        self.project = (key.project,)
+        self.description = (key.description,)
+        self.active = (key.active,)
+        self.internal = (key.internal,)
+        self.created_at = (key.created_at,)
