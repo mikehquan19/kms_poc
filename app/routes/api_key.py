@@ -30,6 +30,14 @@ async def create_key(
     return dto
 
 
+@api_key_router.get("/{project}")
+async def get_keys(
+    project: str, api_key_service: APIKeyService = Depends(get_api_key_service)
+):
+    results = api_key_service.get_keys(project)
+    return results
+
+
 class RevokeAPIKeyRequest(BaseModel):
     key_id: str
 

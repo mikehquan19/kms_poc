@@ -8,6 +8,7 @@ class APIKey(BaseModel):
     id: ObjectId = Field(default_factory=ObjectId, alias="_id")
     project: str
     description: str
+    encrypted_key: str
     hashed_key: str
     active: bool = True
     internal: bool

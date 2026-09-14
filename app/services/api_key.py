@@ -1,11 +1,13 @@
+import os
 import secrets
 import hashlib
-from typing import Optional, Any
+from typing import Optional, Any, List
 from datetime import datetime, timezone
 
 from app.models import APIKey, APIKeyDTO
 from app.repositories import APIKeyRepository, L1Cache, RedisCache
 from app.constants import API_KEY_PREFIX
+from cryptography.fernet import Fernet
 
 from dotenv import load_dotenv
 import logging
@@ -28,6 +30,11 @@ class APIKeyService:
 
         self.l1_cache = l1_cache
         self.l1_cache_ttl = 15
+
+        fernet_key = os.getenv("FERNET_KEY")
+        if not fernet_key:
+            raise Exception("No fernet for encryption/decryption")
+        self.fernet = Fernet(os.getenv("FERNET_KEY"))
 
     def _hash_key(self, api_key: str) -> str:
         return hashlib.sha256(api_key.encode("utf-8")).hexdigest()
@@ -60,7 +67,6 @@ class APIKeyService:
             logger.info("Key inserted to l1 cache")
         except Exception as e:
             logger.error(f"Failed to cache key in l1: {e}")
-        
 
     def _delete_l1_cache(self, key_hash: str):
         try:
@@ -79,7 +85,8 @@ class APIKeyService:
         """
         Strategy for API key generation:
             - Format: `nebula_api_<32 bytes of base64-encoded string>`
-            - Hash using SHA-256
+            - Encrypt using Fernet so we can see the key again
+            - Hash using SHA-256 so we can search for the unique hash more efficiently
             - Insert to MongoDB
             - Insert to Redis cache (expiring every 5 for testing)
         """
@@ -90,22 +97,23 @@ class APIKeyService:
                 APIKey(
                     project=project,
                     description=description,
+                    encrypted_key=self.fernet.encrypt(api_key.encode()),
                     hashed_key=key_hash,
                     internal=internal,
                 )
             )
-        if not created_doc:
-            return None
+            if not created_doc:
+                return None
 
-        return {
-            "id": str(created_doc.id),
-            "project": created_doc.project,
-            "description": created_doc.description,
-            "api_key": api_key,
-            "active": created_doc.active,
-            "created_at": created_doc.created_at,
-            "internal": created_doc.internal,
-        }
+            return {
+                "id": str(created_doc.id),
+                "project": created_doc.project,
+                "description": created_doc.description,
+                "api_key": api_key,
+                "active": created_doc.active,
+                "created_at": created_doc.created_at,
+                "internal": created_doc.internal,
+            }
 
     def validate_key(self, api_key: str) -> Optional[APIKeyDTO]:
         """
@@ -169,10 +177,12 @@ class APIKeyService:
                 if not doc:
                     return None
 
-                span.set_attributes({
-                    "api_key.revoked_at": doc.revoked_at,
-                    "api_key.deleted_at": doc.deleted_at,
-                })
+                span.set_attributes(
+                    {
+                        "api_key.revoked_at": doc.revoked_at,
+                        "api_key.deleted_at": doc.deleted_at,
+                    }
+                )
 
             with tracer.start_as_current_span("cache.delete_api_key"):
                 self._delete_cache(doc.hashed_key)
@@ -200,3 +210,20 @@ class APIKeyService:
                 self._delete_cache(doc.hashed_key)
 
             return APIKeyDTO(doc)
+
+    def get_keys(self, project: str) -> List[dict[str, Any]]:
+        with tracer.start_as_current_span("api_key.get"):
+            docs = self.repository.find_by_project(project)
+
+            return [
+                {
+                    "id": str(doc.id),
+                    "project": doc.project,
+                    "description": doc.description,
+                    "api_key": self.fernet.decrypt(doc.encrypted_key).decode(),
+                    "active": doc.active,
+                    "created_at": doc.created_at,
+                    "internal": doc.internal,
+                }
+                for doc in docs
+            ]

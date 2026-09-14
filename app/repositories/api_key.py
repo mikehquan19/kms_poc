@@ -2,7 +2,7 @@ from pymongo import ReturnDocument
 from pymongo.collection import Collection
 from app.models import APIKey
 from app.constants import GRACE_PERIOD
-from typing import Optional
+from typing import Optional, List
 from bson import ObjectId
 from datetime import datetime, timezone, timedelta
 
@@ -32,6 +32,10 @@ class APIKeyRepository:
 
         logger.info("Key found in DB")
         return APIKey(**doc)
+
+    def find_by_project(self, project: str) -> List[APIKey]:
+        docs = self.collection.find({"project": project})
+        return [APIKey(**doc) for doc in docs]
 
     def revoke(self, key_id: str) -> Optional[APIKey]:
         """
