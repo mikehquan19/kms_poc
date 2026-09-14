@@ -3,8 +3,14 @@ import logging
 from fastapi import Depends, HTTPException, status, Security
 from fastapi.security import APIKeyHeader
 
-from app.models import APIKey, APIKeyDTO
-from app.repositories import MongoDB, RedisCache, APIKeyRepository, AnimalRepository
+from app.models import APIKeyDTO
+from app.repositories import (
+    MongoDB,
+    L1Cache,
+    RedisCache,
+    APIKeyRepository,
+    AnimalRepository,
+)
 from app.services import APIKeyService, AnimalService
 from app.constants import (
     DEFAULT_MONGO_URL,
@@ -24,7 +30,9 @@ logger = logging.getLogger(__name__)
 
 api_key_header = APIKeyHeader(name="x-api-key", auto_error=True)
 mongo_conn = MongoDB(os.getenv("MONGO_URL", DEFAULT_MONGO_URL))
-cache = RedisCache(
+
+l1_cache = L1Cache()
+redis_cache = RedisCache(
     os.getenv("REDIS_HOST", DEFAULT_REDIS_HOST),
     os.getenv("REDIS_PORT", DEFAULT_REDIS_PORT),
     os.getenv("REDIS_USERNAME", DEFAULT_REDIS_USERNAME),
@@ -48,7 +56,7 @@ def get_api_key_service(
     repository: APIKeyRepository = Depends(get_api_key_repository),
 ) -> APIKeyService:
     """API key service dependency"""
-    return APIKeyService(repository, cache)
+    return APIKeyService(repository, redis_cache, l1_cache)
 
 
 def get_animal_service(
