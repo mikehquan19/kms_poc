@@ -19,7 +19,7 @@ animal_router = APIRouter(
     response_model=List[Animal],
     include_in_schema=False,
 )
-def get_animals(
+async def get_animals(
     animal_service: AnimalService = Depends(get_animal_service),
 ):
     return animal_service.get_animals()

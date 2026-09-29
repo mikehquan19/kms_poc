@@ -1,12 +1,13 @@
+import os
 import secrets
 import hashlib
-import os
-from typing import Optional, Any
+from typing import Optional, Any, List
 from datetime import datetime, timezone
 
 from app.models import APIKey, APIKeyDTO
-from app.repositories import APIKeyRepository, RedisCache
+from app.repositories import APIKeyRepository, L1Cache, RedisCache
 from app.constants import API_KEY_PREFIX
+from cryptography.fernet import Fernet
 
 from dotenv import load_dotenv
 import logging
@@ -21,33 +22,62 @@ tracer = trace.get_tracer(__name__)
 
 class APIKeyService:
     def __init__(
-        self, repository: APIKeyRepository, cache: RedisCache, cache_ttl: int = 3 * 60
+        self, repository: APIKeyRepository, redis_cache: RedisCache, l1_cache: L1Cache
     ):
         self.repository = repository
-        self.cache = cache
-        self.cache_ttl = cache_ttl
-        self.use_cache = os.getenv("USE_CACHE", "false").lower() == "true"
+        self.redis_cache = redis_cache
+        self.redis_cache_ttl = 5 * 60
+
+        self.l1_cache = l1_cache
+        self.l1_cache_ttl = 15
+
+        fernet_key = os.getenv("FERNET_KEY")
+        if not fernet_key:
+            raise Exception("No fernet for encryption/decryption")
+        self.fernet = Fernet(os.getenv("FERNET_KEY"))
 
     def _hash_key(self, api_key: str) -> str:
         return hashlib.sha256(api_key.encode("utf-8")).hexdigest()
 
-    def _insert_cache(self, doc: APIKey):
+    def _insert_redis_cache(self, doc: APIKey):
         try:
-            self.cache.set(
+            self.redis_cache.set(
                 f"{API_KEY_PREFIX}:{doc.hashed_key}",
                 doc.model_dump_json(),
-                self.cache_ttl,
+                self.redis_cache_ttl,
             )
-            logger.info("Key inserted to cache")
+            logger.info("Key inserted to redis cache")
         except Exception as e:
-            logger.error(f"Failed to cache API key: {e}")
+            logger.error(f"Failed to cache key in redis: {e}")
+
+    def _delete_redis_cache(self, key_hash: str):
+        try:
+            self.redis_cache.delete(f"{API_KEY_PREFIX}:{key_hash}")
+            logger.info("Key deleted from redis cache")
+        except Exception as e:
+            logger.error(f"Failed to delete cached key in redis: {e}")
+
+    def _insert_l1_cache(self, doc: APIKey):
+        try:
+            self.l1_cache.set(
+                f"{API_KEY_PREFIX}:{doc.hashed_key}",
+                doc.model_dump_json(),
+                self.l1_cache_ttl,
+            )
+            logger.info("Key inserted to l1 cache")
+        except Exception as e:
+            logger.error(f"Failed to cache key in l1: {e}")
+
+    def _delete_l1_cache(self, key_hash: str):
+        try:
+            self.l1_cache.delete(f"{API_KEY_PREFIX}:{key_hash}")
+            logger.info("Key deleted from l1 cache")
+        except Exception as e:
+            logger.error(f"Failed to delete cached key in l1: {e}")
 
     def _delete_cache(self, key_hash: str):
-        try:
-            self.cache.delete(f"{API_KEY_PREFIX}:{key_hash}")
-            logger.info("Key deleted from cache")
-        except Exception as e:
-            logger.error(f"Failed to delete cached API key: {e}")
+        self._delete_redis_cache(key_hash)
+        self._delete_l1_cache(key_hash)
 
     def create_key(
         self, project: str, description: str, internal: bool
@@ -55,23 +85,24 @@ class APIKeyService:
         """
         Strategy for API key generation:
             - Format: `nebula_api_<32 bytes of base64-encoded string>`
-            - Hash using SHA-256
+            - Encrypt using Fernet so we can see the key again
+            - Hash using SHA-256 so we can search for the unique hash more efficiently
             - Insert to MongoDB
-            - Insert to Redis cache (expiring every 1.5 mins for testing)
+            - Insert to Redis cache (expiring every 5 for testing)
         """
         with tracer.start_as_current_span("api_key.create"):
             api_key = f"nebula_api_{secrets.token_urlsafe(32)}"
             key_hash = self._hash_key(api_key)
-
             created_doc = self.repository.create(
                 APIKey(
                     project=project,
                     description=description,
+                    encrypted_key=self.fernet.encrypt(api_key.encode()),
                     hashed_key=key_hash,
                     internal=internal,
                 )
             )
-            if created_doc is None:
+            if not created_doc:
                 return None
 
             return {
@@ -88,40 +119,60 @@ class APIKeyService:
         """
         Strategy for API key validation:
             - Hash using SHA-256
-            - Check Redis cache. If cache hits, return the result
-            - If cache misses,
-            -   Check MongoDB. If key exists,
-            -       Re-insert the key in cache
-            -       Return result
-            - Return none
-
+            - Check L1 cache. If L1 cache hits, return the result
+            - If L1 cache misses,
+            -   Check Redis cache. If Redis cache hits,
+            -       Re-insert the key in L1 cache
+            -       Return the result
+            -   If Redis cache misses,
+            -       Check MongoDB. If key exists,
+            -           Re-insert the key in L1 and Redis caches
+            -           Return result
+            -   Return none
         """
         with tracer.start_as_current_span("api_key.validate"):
             key_hash = self._hash_key(api_key)
 
-            if self.use_cache:
-                with tracer.start_as_current_span("redis.get_api_key") as span:
-                    serialized = self.cache.get(f"{API_KEY_PREFIX}:{key_hash}")
-                    if serialized:
-                        # Cache hit
-                        span.set_attribute("cache.hit", True)
-                        logger.info("Key found in cache")
-                        return APIKey.model_validate_json(serialized)
-                    else:
-                        span.set_attribute("cache.hit", False)
+            with tracer.start_as_current_span("l1.get_api_key") as span:
+                data = self.l1_cache.get(f"{API_KEY_PREFIX}:{key_hash}")
+                if data:
+                    # Cache hit
+                    span.set_attribute("l1.hit", True)
+                    logger.info("Key found in l1 cache")
+
+                    return APIKeyDTO(APIKey.model_validate_json(data))
+                else:
+                    span.set_attribute("l1.hit", False)
+
+            with tracer.start_as_current_span("redis.get_api_key") as span:
+                data = self.redis_cache.get(f"{API_KEY_PREFIX}:{key_hash}")
+                if data:
+                    # Cache hit
+                    span.set_attribute("redis.hit", True)
+                    logger.info("Key found in redis cache")
+
+                    doc = APIKey.model_validate_json(data)
+                    with tracer.start_as_current_span("l1.set_api_key"):
+                        # Key expires in L1 cache so reinsert it
+                        self._insert_l1_cache(doc)
+
+                    return APIKeyDTO(doc)
+                else:
+                    span.set_attribute("redis.hit", False)
 
             # Cache miss
-            with tracer.start_as_current_span("mongo.find_api_key"):
+            with tracer.start_as_current_span("mongo.find_key"):
                 doc = self.repository.find_by_hash(key_hash=key_hash)
                 if not doc:
                     return None
 
-            if self.use_cache and doc.active:
+            if doc.active:
                 # Cache misses because key expires
-                with tracer.start_as_current_span("redis.set_api_key"):
-                    self._insert_cache(doc)
+                with tracer.start_as_current_span("cache.set_api_key"):
+                    self._insert_redis_cache(doc)
+                    self._insert_l1_cache(doc)
 
-            return doc.convert_dto()
+            return APIKeyDTO(doc)
 
     def revoke_key(self, key_id: str) -> Optional[APIKeyDTO]:
         with tracer.start_as_current_span("api_key.revoke"):
@@ -133,15 +184,14 @@ class APIKeyService:
                 span.set_attributes(
                     {
                         "api_key.revoked_at": doc.revoked_at,
-                        "api_key.deleted_expected_at": doc.deleted_at,
+                        "api_key.deleted_at": doc.deleted_at,
                     }
                 )
 
-            if self.use_cache:
-                with tracer.start_as_current_span("redis.delete_api_key"):
-                    self._delete_cache(doc.hashed_key)
+            with tracer.start_as_current_span("cache.delete_api_key"):
+                self._delete_cache(doc.hashed_key)
 
-            return doc.convert_dto()
+            return APIKeyDTO(doc)
 
     def reactivate_key(self, key_id: str) -> Optional[APIKeyDTO]:
         with tracer.start_as_current_span("api_key.reactivate"):
@@ -149,7 +199,7 @@ class APIKeyService:
             if not doc:
                 return None
 
-            return doc.convert_dto()
+            return APIKeyDTO(doc)
 
     def force_delete_key(self, key_id: str) -> Optional[APIKeyDTO]:
         with tracer.start_as_current_span("api_key.force_delete"):
@@ -157,13 +207,27 @@ class APIKeyService:
                 doc = self.repository.force_delete(key_id)
                 if not doc:
                     return None
+                now = datetime.now(timezone.utc)
+                span.set_attribute("api_key.deleted_at", now)
 
-                span.set_attribute(
-                    "api_key.force_deleted_at", datetime.now(timezone.utc)
-                )
+            with tracer.start_as_current_span("cache.delete_api_key"):
+                self._delete_cache(doc.hashed_key)
 
-            if self.use_cache:
-                with tracer.start_as_current_span("redis.delete_api_key"):
-                    self._delete_cache(doc.hashed_key)
+            return APIKeyDTO(doc)
 
-            return doc.convert_dto()
+    def get_keys(self, project: str) -> List[dict[str, Any]]:
+        with tracer.start_as_current_span("api_key.get"):
+            docs = self.repository.find_by_project(project)
+
+            return [
+                {
+                    "id": str(doc.id),
+                    "project": doc.project,
+                    "description": doc.description,
+                    "api_key": self.fernet.decrypt(doc.encrypted_key).decode(),
+                    "active": doc.active,
+                    "created_at": doc.created_at,
+                    "internal": doc.internal,
+                }
+                for doc in docs
+            ]

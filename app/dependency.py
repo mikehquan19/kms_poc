@@ -3,13 +3,31 @@ import logging
 from fastapi import Depends, HTTPException, status, Security
 from fastapi.security import APIKeyHeader
 
-from app.models import APIKey, APIKeyDTO
-from app.repositories import MongoDB, RedisCache, APIKeyRepository, AnimalRepository
-from app.services import APIKeyService, AnimalService
+from app.models import APIKeyDTO
+from app.repositories import (
+    MongoDB,
+    L1Cache,
+    RedisCache,
+    APIKeyRepository,
+    AnimalRepository,
+    BookRepository,
+    PlantRepository,
+    VehicleRepository,
+)
+from app.services import (
+    APIKeyService,
+    AnimalService,
+    BookService,
+    PlantService,
+    VehicleService,
+)
 from app.constants import (
     DEFAULT_MONGO_URL,
     API_KEY_COLLECTION,
     ANIMAL_COLLECTION,
+    BOOK_COLLECTION,
+    PLANT_COLLECTION,
+    VEHICLE_COLLECTION,
     DEFAULT_REDIS_HOST,
     DEFAULT_REDIS_PORT,
     DEFAULT_REDIS_USERNAME,
@@ -24,7 +42,9 @@ logger = logging.getLogger(__name__)
 
 api_key_header = APIKeyHeader(name="x-api-key", auto_error=True)
 mongo_conn = MongoDB(os.getenv("MONGO_URL", DEFAULT_MONGO_URL))
-cache = RedisCache(
+
+l1_cache = L1Cache()
+redis_cache = RedisCache(
     os.getenv("REDIS_HOST", DEFAULT_REDIS_HOST),
     os.getenv("REDIS_PORT", DEFAULT_REDIS_PORT),
     os.getenv("REDIS_USERNAME", DEFAULT_REDIS_USERNAME),
@@ -48,7 +68,7 @@ def get_api_key_service(
     repository: APIKeyRepository = Depends(get_api_key_repository),
 ) -> APIKeyService:
     """API key service dependency"""
-    return APIKeyService(repository, cache)
+    return APIKeyService(repository, redis_cache, l1_cache)
 
 
 def get_animal_service(
@@ -56,6 +76,39 @@ def get_animal_service(
 ) -> AnimalService:
     """Animal service dependency"""
     return AnimalService(repository)
+
+
+def get_plant_repository() -> PlantRepository:
+    collection = mongo_conn.get_collection(PLANT_COLLECTION)
+    return PlantRepository(collection)
+
+
+def get_plant_service(
+    repository: PlantRepository = Depends(get_plant_repository),
+) -> PlantService:
+    return PlantService(repository)
+
+
+def get_vehicle_repository() -> VehicleRepository:
+    collection = mongo_conn.get_collection(VEHICLE_COLLECTION)
+    return VehicleRepository(collection)
+
+
+def get_vehicle_service(
+    repository: VehicleRepository = Depends(get_vehicle_repository),
+) -> VehicleService:
+    return VehicleService(repository)
+
+
+def get_book_repository() -> BookRepository:
+    collection = mongo_conn.get_collection(BOOK_COLLECTION)
+    return BookRepository(collection)
+
+
+def get_book_service(
+    repository: BookRepository = Depends(get_book_repository),
+) -> BookService:
+    return BookService(repository)
 
 
 def require_api_key(
@@ -67,13 +120,13 @@ def require_api_key(
     if api_key_doc is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Your API key is invalid",
+            detail={"message": "Your API key is invalid"},
         )
 
     if not api_key_doc.active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Your API key has been revoked. Please contact us",
+            detail={"message": "Your API key has been revoked. Please contact us"},
         )
 
     return api_key_doc
@@ -86,7 +139,9 @@ def require_internal_api_key(
     if not api_key_doc.internal:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Your API key doesn't have access to this. Please contact us",
+            detail={
+                "message": "Your API key doesn't have access to this. Please contact us"
+            },
         )
 
     return api_key_doc

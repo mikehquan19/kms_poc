@@ -1,32 +1,23 @@
 from datetime import datetime, timezone
 from typing import Optional
-from pydantic import (
-    BaseModel,
-    Field,
-    field_serializer,
-    field_validator,
-    ConfigDict,
-)
+
 from bson import ObjectId
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 
 
-class Animal(BaseModel):
+class Vehicle(BaseModel):
     id: ObjectId = Field(default_factory=ObjectId, alias="_id")
-    name: str
-    species: str
-    scientific_name: Optional[str] = None
-    habitat: str
-    region: str
-    diet: str
-    average_weight_kg: Optional[float] = None
-    average_lifespan_years: Optional[int] = None
-    endangered: bool = False
+    make: str
+    model: str
+    model_year: int
+    vehicle_type: str
+    fuel_type: str
+    transmission: str
+    mileage_km: int
+    color: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-    model_config = ConfigDict(
-        populate_by_name=True,
-        arbitrary_types_allowed=True,
-    )
+    model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)
 
     @field_validator("id", mode="before")
     @classmethod
