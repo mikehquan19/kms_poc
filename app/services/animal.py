@@ -13,4 +13,5 @@ class AnimalService:
 
     def get_animals(self) -> List[Animal]:
         with tracer.start_as_current_span("animal.find"):
-            return self.repository.find()
+            animals = self.repository.find()
+            return animals

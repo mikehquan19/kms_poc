@@ -10,12 +10,24 @@ from app.repositories import (
     RedisCache,
     APIKeyRepository,
     AnimalRepository,
+    BookRepository,
+    PlantRepository,
+    VehicleRepository,
 )
-from app.services import APIKeyService, AnimalService
+from app.services import (
+    APIKeyService,
+    AnimalService,
+    BookService,
+    PlantService,
+    VehicleService,
+)
 from app.constants import (
     DEFAULT_MONGO_URL,
     API_KEY_COLLECTION,
     ANIMAL_COLLECTION,
+    BOOK_COLLECTION,
+    PLANT_COLLECTION,
+    VEHICLE_COLLECTION,
     DEFAULT_REDIS_HOST,
     DEFAULT_REDIS_PORT,
     DEFAULT_REDIS_USERNAME,
@@ -64,6 +76,39 @@ def get_animal_service(
 ) -> AnimalService:
     """Animal service dependency"""
     return AnimalService(repository)
+
+
+def get_plant_repository() -> PlantRepository:
+    collection = mongo_conn.get_collection(PLANT_COLLECTION)
+    return PlantRepository(collection)
+
+
+def get_plant_service(
+    repository: PlantRepository = Depends(get_plant_repository),
+) -> PlantService:
+    return PlantService(repository)
+
+
+def get_vehicle_repository() -> VehicleRepository:
+    collection = mongo_conn.get_collection(VEHICLE_COLLECTION)
+    return VehicleRepository(collection)
+
+
+def get_vehicle_service(
+    repository: VehicleRepository = Depends(get_vehicle_repository),
+) -> VehicleService:
+    return VehicleService(repository)
+
+
+def get_book_repository() -> BookRepository:
+    collection = mongo_conn.get_collection(BOOK_COLLECTION)
+    return BookRepository(collection)
+
+
+def get_book_service(
+    repository: BookRepository = Depends(get_book_repository),
+) -> BookService:
+    return BookService(repository)
 
 
 def require_api_key(

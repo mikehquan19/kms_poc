@@ -119,12 +119,16 @@ class APIKeyService:
         """
         Strategy for API key validation:
             - Hash using SHA-256
-            - Check Redis cache. If cache hits, return the result
-            - If cache misses,
-            -   Check MongoDB. If key exists,
-            -       Re-insert the key in cache
-            -       Return result
-            - Return none
+            - Check L1 cache. If L1 cache hits, return the result
+            - If L1 cache misses,
+            -   Check Redis cache. If Redis cache hits,
+            -       Re-insert the key in L1 cache
+            -       Return the result
+            -   If Redis cache misses,
+            -       Check MongoDB. If key exists,
+            -           Re-insert the key in L1 and Redis caches
+            -           Return result
+            -   Return none
         """
         with tracer.start_as_current_span("api_key.validate"):
             key_hash = self._hash_key(api_key)
